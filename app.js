@@ -22,7 +22,20 @@ const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&
 let TODAY=iso(new Date());
 
 /* ---------- Agenda fixa ---------- */
-const PAN=[];for(let i=0;i<60;i++){PAN.push({key:"pan-"+String(i+1).padStart(2,"0"),n:i+1,due:iso(new Date(2026,10+i,20)),amt:PAN_V,env:"fin",t:"Banco Pan · parcela "+(i+1)+"/60"})}
+let PAN=[],OBR=[];
+function buildPan(){
+  const mods=st.amort.filter(a=>a.modo==="parcela"&&Number(a.novaParcela)>0).sort((a,b)=>a.data<b.data?-1:1);
+  PAN=[];for(let i=0;i<60;i++){const due=iso(new Date(2026,10+i,20));let amt=PAN_V;mods.forEach(a=>{if(due>a.data)amt=Number(a.novaParcela)});
+    PAN.push({key:"pan-"+String(i+1).padStart(2,"0"),n:i+1,due,amt,env:"fin",t:"Banco Pan · parcela "+(i+1)+"/60"})}
+}
+function buildObr(){
+  const ip=Number(st.cfg.ipva)||0,sr=Number(st.cfg.seguroRenov)||0;OBR=[];
+  for(let y=2027;y<=2031;y++){
+    if(ip>0)[1,2,3].forEach(m=>OBR.push({key:`ipva-${y}-${m}`,due:`${y}-0${m}-15`,amt:Math.round(ip/3*100)/100,env:"obr",t:`IPVA ${y} · cota ${m}/3`}));
+    if(sr>0&&y<=2030)OBR.push({key:`renov-${y}`,due:`${y}-10-22`,amt:sr,env:"obr",t:`Renovação do seguro ${y}`});
+  }
+  OBR.sort((a,b)=>a.due<b.due?-1:1);
+}
 const SEG_RAW=[["2026-10-29",702.95],["2026-11-23",703.02],["2026-12-21",703.02],["2027-01-21",703.03],["2027-02-22",703.03],["2027-03-22",703.03],["2027-04-21",703.03],["2027-05-21",703.03],["2027-06-21",703.03],["2027-07-21",703.03],["2027-08-23",703.03],["2027-09-21",703.03]];
 const faturaDe=s=>{const d=D(s);let f=new Date(d.getFullYear(),d.getMonth(),10);if(f<=d)f=new Date(d.getFullYear(),d.getMonth()+1,10);return iso(f)};
 const SEG=SEG_RAW.map(([c,a],i)=>({key:"seg-"+String(i+1).padStart(2,"0"),n:i+1,charge:c,due:faturaDe(c),amt:a,env:"seg",t:"Seguro Suhai · parcela "+(i+1)+"/12"}));
@@ -45,14 +58,15 @@ const MT=()=>[
 const OUTROS_TIPOS=["Pastilhas de freio","Pneus novos","Bateria","Alinhamento","Mecânica","Funilaria","Lavagem","IPVA","Licenciamento","Franquia","Retirada de lucro","Outro"];
 
 /* ---------- Estado ---------- */
-const st={status:{},gastos:[],km:[],multas:[],docs:[],cfg:{man:150,res:100,oleoKm:7500,oleoPct:15},ficha:null,linhas:{}};
+const CFG0={man:150,res:100,oleoKm:7500,oleoPct:15,taxa:2.5,taxaOk:false,colchao:2000,planoDez:6000,ipva:4000,seguroRenov:7000};
+const st={status:{},gastos:[],km:[],multas:[],docs:[],amort:[],cfg:Object.assign({},CFG0),ficha:null,linhas:{}};
 let user=null, PLAN={};
 
 /* ---------- Dados ---------- */
 async function loadAll(){
   const {data,error}=await sb.from(TABLE).select("colecao,id,dados").limit(5000);
   if(error)throw error;
-  st.status={};st.gastos=[];st.km=[];st.multas=[];st.docs=[];
+  st.status={};st.gastos=[];st.km=[];st.multas=[];st.docs=[];st.amort=[];
   for(const r of data){
     const o=Object.assign({id:r.id},r.dados);
     if(r.colecao==="status")st.status[r.id]=o;
@@ -60,7 +74,8 @@ async function loadAll(){
     else if(r.colecao==="km")st.km.push(o);
     else if(r.colecao==="multas")st.multas.push(o);
     else if(r.colecao==="docs")st.docs.push(o);
-    else if(r.colecao==="config"&&r.id==="geral")st.cfg=Object.assign({man:150,res:100,oleoKm:7500,oleoPct:15},r.dados);
+    else if(r.colecao==="amort")st.amort.push(o);
+    else if(r.colecao==="config"&&r.id==="geral")st.cfg=Object.assign({},CFG0,r.dados);
     else if(r.colecao==="ficha"&&r.id==="carro")st.ficha=r.dados;
     else if(r.colecao==="ficha"&&r.id==="linhas")st.linhas=r.dados;
   }
@@ -114,27 +129,30 @@ async function upload(path,blob,type){
 
 /* ---------- Divisão por semana ---------- */
 function plan(){
-  PLAN={};let bf=0,bs=0;
+  PLAN={};let bf=0,bs=0,bo=0;const PANF=PAN.filter(p=>!isAnt(p.key));
   const need=(m,bal,list)=>{const f=list.find(x=>x.due>=m);if(!f)return 0;const n=MONS.filter(x=>x>=m&&x<=f.due).length||1;return Math.max(0,(f.amt-bal)/n)};
   for(const m of MONS){
-    let a=need(m,bf,PAN),b=need(m,bs,SEG);
+    let a=need(m,bf,PANF),b=need(m,bs,SEG);
     if(a+b>RENT){const k=RENT/(a+b);a*=k;b*=k}
-    let rest=RENT-a-b;const man=Math.min(Number(st.cfg.man)||0,rest);rest-=man;const res=Math.min(Number(st.cfg.res)||0,rest);rest-=res;
-    PLAN[m]={fin:a,seg:b,man,res,luc:rest};
-    bf+=a;bs+=b;const nx=addDays(m,7);
-    PAN.forEach(p=>{if(p.due>=m&&p.due<nx)bf-=p.amt});SEG.forEach(p=>{if(p.due>=m&&p.due<nx)bs-=p.amt});
+    let rest=RENT-a-b;const o=Math.min(need(m,bo,OBR),rest);rest-=o;const man=Math.min(Number(st.cfg.man)||0,rest);rest-=man;const res=Math.min(Number(st.cfg.res)||0,rest);rest-=res;
+    PLAN[m]={fin:a,seg:b,obr:o,man,res,luc:rest};
+    bf+=a;bs+=b;bo+=o;const nx=addDays(m,7);
+    PANF.forEach(p=>{if(p.due>=m&&p.due<nx)bf-=p.amt});SEG.forEach(p=>{if(p.due>=m&&p.due<nx)bs-=p.amt});OBR.forEach(p=>{if(p.due>=m&&p.due<nx)bo-=p.amt});
   }
 }
 const isDone=k=>!!(st.status[k]&&st.status[k].done);
+const isAnt=k=>!!(st.status[k]&&st.status[k].antecipada);
 function envelopes(){
-  const e={fin:0,seg:0,man:0,res:0,luc:0};
+  const e={fin:0,seg:0,obr:0,man:0,res:0,luc:0};
   MONS.forEach(m=>{if(isDone("w-"+m)){const p=PLAN[m];for(const k in e)e[k]+=p[k]}});
-  PAN.forEach(p=>{if(isDone(p.key))e.fin-=p.amt});
+  PAN.forEach(p=>{if(isDone(p.key)&&!isAnt(p.key))e.fin-=p.amt});
+  OBR.forEach(p=>{if(isDone(p.key))e.obr-=p.amt});
+  st.amort.forEach(a=>{const f=a.fonte||{};e.luc-=Number(f.luc)||0;e.res-=Number(f.res)||0});
   SEG.forEach(p=>{if(isDone(p.key))e.seg-=p.amt});
   st.gastos.forEach(g=>{if(e[g.env]!==undefined)e[g.env]-=Number(g.valor)||0});
   return e;
 }
-const ENV_META=[["fin","Financiamento","Boleto Banco Pan · dia 20","--env-fin"],["seg","Seguro","Fatura do cartão · dia 10","--env-seg"],["man","Manutenção","Óleo, pneus, freios, revisão","--env-man"],["res","Reserva","IPVA, franquia, imprevistos","--env-res"],["luc","Lucro livre","Seu, pode retirar","--env-luc"]];
+const ENV_META=[["fin","Financiamento","Boleto Banco Pan · dia 20","--env-fin"],["seg","Seguro","Fatura do cartão · dia 10","--env-seg"],["obr","IPVA e seguro novo","IPVA (jan–mar) e renovação do seguro (out)","--env-obr"],["man","Manutenção","Óleo, pneus, freios, revisão","--env-man"],["res","Reserva","IPVA, franquia, imprevistos","--env-res"],["luc","Lucro livre","Seu, pode retirar","--env-luc"]];
 
 /* ---------- KM e manutenção ---------- */
 function kmSorted(){return [...st.km].filter(k=>Number(k.km)>0).sort((a,b)=>a.data<b.data?1:a.data>b.data?-1:Number(b.km)-Number(a.km))}
@@ -182,10 +200,11 @@ function rentWeekState(m){
   return["bad",late+" dias atrasado"];
 }
 function billState(b,e){
+  if(isAnt(b.key))return["ok","Antecipada"];
   if(isDone(b.key))return["ok","Pago"];
   const d=diff(TODAY,b.due);
   if(d>0)return["bad",d+" dias vencido"];
-  const first=(b.env==="fin"?PAN:SEG).find(x=>!isDone(x.key));
+  const first=(b.env==="fin"?PAN:b.env==="seg"?SEG:OBR).find(x=>!isDone(x.key));
   if(first&&first.key===b.key)return e[b.env]>=b.amt-0.005?["ok","Dinheiro separado"]:["warn","Faltam "+fmt0(b.amt-e[b.env])];
   return["neu",d===0?"Vence hoje":"Em "+(-d)+" dias"];
 }
@@ -197,8 +216,8 @@ function renderPainel(){
   if(lateRent.length)al.push(["bad",`<b>Aluguel atrasado:</b> ${lateRent.length} semana(s), ${fmt(lateRent.length*RENT)} (desde ${br(lateRent[0])})`]);
   const thisMon=MONS.find(m=>m<=TODAY&&diff(TODAY,m)<=1&&!isDone("w-"+m));
   if(thisMon)al.push(["warn",`<b>Aluguel desta segunda (${brShort(thisMon)}) ainda não marcado.</b> Caiu os R$ 1.200? Peça também a foto do painel.`]);
-  [...PAN,...SEG].filter(b=>!isDone(b.key)&&b.due<TODAY).forEach(b=>{const c=lateCost(b);al.push(["bad",`<b>${esc(b.t)} vencida em ${br(b.due)}.</b> ${c?"Multa e mora até hoje: "+fmt(c)+".":"Pague a fatura do cartão."}`])});
-  [...PAN,...SEG].filter(b=>!isDone(b.key)&&b.due>=TODAY&&diff(b.due,TODAY)<=5).forEach(b=>{const s=billState(b,e);al.push([s[0]==="ok"?"ok":"warn",`<b>${esc(b.t)}</b> vence ${diff(b.due,TODAY)===0?"HOJE":"em "+diff(b.due,TODAY)+" dia(s)"} (${br(b.due)}) · ${fmt(b.amt)} · ${s[1]}`])});
+  [...PAN,...SEG,...OBR].filter(b=>!isDone(b.key)&&b.due<TODAY).forEach(b=>{const c=lateCost(b);al.push(["bad",`<b>${esc(b.t)} vencida em ${br(b.due)}.</b> ${c?"Multa e mora até hoje: "+fmt(c)+".":"Pague a fatura do cartão."}`])});
+  [...PAN,...SEG,...OBR].filter(b=>!isDone(b.key)&&b.due>=TODAY&&diff(b.due,TODAY)<=5).forEach(b=>{const s=billState(b,e);al.push([s[0]==="ok"?"ok":"warn",`<b>${esc(b.t)}</b> vence ${diff(b.due,TODAY)===0?"HOJE":"em "+diff(b.due,TODAY)+" dia(s)"} (${br(b.due)}) · ${fmt(b.amt)} · ${s[1]}`])});
   const mt=mtStatus(),bad=mt.filter(x=>x.sev==="bad"),warn=mt.filter(x=>x.sev==="warn");
   if(bad.length)al.push(["bad",`<b>Manutenção vencida:</b> ${bad.map(x=>esc(x.n)).join(", ")}. Veja a aba Carro.`]);
   if(warn.length)al.push(["warn",`<b>Manutenção chegando:</b> ${warn.map(x=>esc(x.n)).join(", ")}.`]);
@@ -209,7 +228,7 @@ function renderPainel(){
   const rec=MONS.filter(m=>isDone("w-"+m)).length,panPaid=PAN.filter(p=>isDone(p.key)).length;
   const yr=TODAY.slice(0,4),recYr=MONS.filter(m=>m.startsWith(yr)&&isDone("w-"+m)).length*RENT;
   const cur=kmNow();
-  const kpis=[["Total recebido",fmt0(rec*RENT),rec+" semana(s)"],["Recebido em "+yr,fmt0(recYr),"aluguel no ano"],["Saldo devedor Pan",fmt0((60-panPaid)*PAN_V),(60-panPaid)+" parcelas restantes"],["KM atual",cur?nf(cur.km):"—",cur?"em "+br(cur.data):"anote o KM"]];
+  const kpis=[["Total recebido",fmt0(rec*RENT),rec+" semana(s)"],["Recebido em "+yr,fmt0(recYr),"aluguel no ano"],["Saldo devedor Pan",fmt0(PAN.filter(p=>!isDone(p.key)).reduce((a,p)=>a+p.amt,0)),(60-panPaid)+" parcelas restantes"],["KM atual",cur?nf(cur.km):"—",cur?"em "+br(cur.data):"anote o KM"]];
   $("kpis").innerHTML=kpis.map(k=>`<div class="panel kpi"><div class="label">${k[0]}</div><div class="v num">${k[1]}</div><div class="s">${k[2]}</div></div>`).join("");
 
   const envHtml=ENV_META.map(([k,n,d,c])=>`<div class="env"><span class="sw" style="background:var(${c})"></span><div><div class="n">${n}</div><div class="d">${d}</div></div><div class="val num" style="color:${e[k]<-0.005?"var(--bad)":"var(--fg)"}">${fmt(e[k])}</div></div>`).join("");
@@ -218,11 +237,12 @@ function renderPainel(){
 
   const lim=addDays(TODAY,30),items=[];
   MONS.filter(m=>m>=addDays(TODAY,-1)&&m<=lim).forEach(m=>items.push({d:m,t:"Aluguel da semana",amt:RENT,in:true,s:rentWeekState(m)}));
-  [...PAN,...SEG].filter(b=>b.due<=lim&&!isDone(b.key)).forEach(b=>items.push({d:b.due,t:b.t,amt:b.amt,s:billState(b,e)}));
+  [...PAN,...SEG,...OBR].filter(b=>b.due<=lim&&!isDone(b.key)).forEach(b=>items.push({d:b.due,t:b.t,amt:b.amt,s:billState(b,e)}));
   items.sort((a,b)=>a.d<b.d?-1:1);
   $("prox").innerHTML=items.map(i=>`<div class="row"><div><div class="t">${esc(i.t)}</div><div class="m num">${WD[D(i.d).getDay()]}, ${br(i.d)}</div></div><div class="r"><span class="amt num" style="color:${i.in?"var(--ok)":"var(--fg)"}">${i.in?"+":"−"}${fmt(i.amt)}</span><span class="pill ${i.s[0]}">${i.s[1]}</span></div></div>`).join("")||`<div class="empty">Nada nos próximos 30 dias.</div>`;
 
-  $("finTxt").textContent=`${panPaid} de 60 pagas · pago ${fmt0(panPaid*PAN_V)} de ${fmt0(60*PAN_V)}`;
+  const nAnt=PAN.filter(p=>isAnt(p.key)).length;
+  $("finTxt").textContent=`${panPaid} de 60 quitadas${nAnt?" ("+nAnt+" antecipadas)":""} · quitação prevista ${br(([...PAN].reverse().find(p=>!isDone(p.key))||PAN[59]).due)}`;
   $("finPct").textContent=Math.round(panPaid/60*100)+"% quitado";
   $("finBar").style.width=(panPaid/60*100)+"%";
 }
@@ -244,15 +264,15 @@ function renderSemanas(){
     return `<div class="row" style="grid-template-columns:1fr"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
       <div><div class="t">Semana ${i+1} · segunda ${br(m)}</div><div class="m">${done&&st.status["w-"+m].at?"Recebido marcado em "+br(st.status["w-"+m].at):"R$ 1.200,00"}${kw?" · "+nf(kw.km)+" km"+(kw.oleo!=null&&kw.oleo!==""?" · óleo "+kw.oleo+"%":""):""}</div></div>
       <div class="r"><span class="pill ${s[0]}">${s[1]}</span><button class="btn sm ${done?"":"pri"}" data-tog="w-${m}">${done?"Desfazer":"Recebi"}</button></div></div>
-      <div class="split num"><div>Pan<b>${fmt0(p.fin)}</b></div><div>Seguro<b>${fmt0(p.seg)}</b></div><div>Manut.<b>${fmt0(p.man)}</b></div><div>Reserva<b>${fmt0(p.res)}</b></div><div>Lucro<b>${fmt0(p.luc)}</b></div></div>${form}</div>`}).join("");
+      <div class="split num"><div>Pan<b>${fmt0(p.fin)}</b></div><div>Seguro<b>${fmt0(p.seg)}</b></div><div>IPVA/Seg.<b>${fmt0(p.obr)}</b></div><div>Manut.<b>${fmt0(p.man)}</b></div><div>Reserva<b>${fmt0(p.res)}</b></div><div>Lucro<b>${fmt0(p.luc)}</b></div></div>${form}</div>`}).join("");
   loadThumbs();
 }
 
 let contaFilter="abertas";
 function renderContas(){
-  const e=envelopes();let list=[...PAN,...SEG].sort((a,b)=>a.due<b.due?-1:a.due>b.due?1:0);
+  const e=envelopes();let list=[...PAN,...SEG,...OBR].sort((a,b)=>a.due<b.due?-1:a.due>b.due?1:0);
   if(contaFilter==="abertas")list=list.filter(b=>!isDone(b.key)).slice(0,14);
-  if(contaFilter==="pan")list=PAN;if(contaFilter==="seg")list=SEG;
+  if(contaFilter==="pan")list=PAN;if(contaFilter==="seg")list=SEG;if(contaFilter==="obr")list=OBR;
   if(contaFilter==="pagas")list=list.filter(b=>isDone(b.key));
   $("contasList").innerHTML=list.map(b=>{const s=billState(b,e),done=isDone(b.key),c=lateCost(b),L=st.linhas[b.key];
     return `<div class="row"><div style="min-width:0"><div class="t">${esc(b.t)}</div><div class="m num">${b.env==="seg"?"Lançada no cartão "+br(b.charge)+" · fatura ":"Boleto · vence "}${br(b.due)}${c&&!done?" · com atraso: "+fmt(b.amt+c):""}${done&&st.status[b.key].at?" · pago em "+br(st.status[b.key].at):""}</div>${L&&!done?`<div class="m mono" style="margin-top:4px;overflow-wrap:anywhere">${esc(L[0])} <button class="copy" type="button" data-copy="${esc(L[0])}">Copiar código</button></div>`:""}</div>
@@ -316,6 +336,7 @@ function renderTimeline(){
     {d:"2031-10-20",t:"Última parcela do Pan",x:"Carro quitado",fut:1}
   ];
   st.gastos.forEach(g=>ev.push({d:g.data,t:g.tipo+" · "+fmt(Number(g.valor)),x:(g.desc||"")+(g.km?" · "+nf(g.km)+" km":"")}));
+  st.amort.forEach(a=>ev.push({d:a.data,t:"Amortização Pan · "+fmt(Number(a.valor)),x:(a.modo==="parcela"?"Reduziu a parcela":"Antecipou "+(a.parcelas||[]).length+" parcela(s)")+" · economia estimada "+fmt0(Number(a.economia)||0)}));
   st.multas.forEach(m=>ev.push({d:m.data,t:"Multa · "+fmt(Number(m.valor)),x:m.desc+(m.status==="pago"?" · paga pelo motorista":" · a repassar")}));
   ev.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
   $("timeline").innerHTML=ev.map(e=>`<div class="ev" style="${e.fut?"opacity:.6":""}"><div class="dt">${br(e.d)}</div><div class="mk"><i style="${e.fut?"background:var(--surface);border-color:var(--accent)":""}"></i></div><div><div class="tt">${esc(e.t)}</div><div class="dd">${esc(e.x)}</div></div></div>`).join("");
@@ -327,8 +348,90 @@ async function loadThumbs(){
   imgs.forEach(i=>{const u=urls[i.dataset.fotoPath];if(u)i.src=u;else i.alt="(não enviada)"});
 }
 function render(){
-  TODAY=iso(new Date());plan();renderPainel();renderSemanas();renderContas();renderGastos();renderCarro();renderTimeline();renderFicha();
+  TODAY=iso(new Date());buildPan();buildObr();plan();renderPainel();renderSemanas();renderContas();renderGastos();renderCarro();renderTimeline();renderFicha();renderAmort();
   const sel=$("gTipo"),cur=sel.value;sel.innerHTML=[...MT().map(x=>x.tipo),...OUTROS_TIPOS].map(t=>`<option>${esc(t)}</option>`).join("");if(cur)sel.value=cur;
+}
+
+/* ---------- Amortização ---------- */
+let amModo="prazo", amSel=null;
+const taxaM=()=>Math.max(0,Number(st.cfg.taxa)||0)/100;
+const pvAt=(p,date,i)=>p.due<=date?p.amt:p.amt/Math.pow(1+i,diff(p.due,date)/30.4375);
+function disponivel(){const e=envelopes();return Math.max(0,e.luc)+Math.max(0,e.res-(Number(st.cfg.colchao)||0))}
+function simPrazo(valor,date,i){
+  const abertas=PAN.filter(p=>!isDone(p.key)&&p.due>date).sort((a,b)=>a.due<b.due?1:-1);
+  let bud=valor,sel=[],pago=0,face=0;
+  for(const p of abertas.slice(0,abertas.length-1)){const v=pvAt(p,date,i);if(v>bud)break;bud-=v;pago+=v;face+=p.amt;sel.push({key:p.key,t:p.t,due:p.due,amt:p.amt,v})}
+  const rest=PAN.filter(p=>!isDone(p.key)&&!sel.find(s=>s.key===p.key));
+  const quit=rest.length?rest[rest.length-1].due:date;
+  return {sel,pago,face,eco:face-pago,quit};
+}
+function simParcela(valor,date,i){
+  const ab=PAN.filter(p=>!isDone(p.key)&&p.due>date);if(!ab.length)return null;
+  const pv=ab.reduce((a,p)=>a+pvAt(p,date,i),0);const use=Math.min(valor,pv);const f=(pv-use)/pv;
+  const nova=ab[0].amt*f;const eco=ab.reduce((a,p)=>a+p.amt,0)*(1-f)-use;
+  return {nova,eco,pago:use,n:ab.length};
+}
+function saldoPV(date,i,skip){return PAN.filter(p=>!isDone(p.key)&&p.due>date&&!(skip&&skip.has(p.key))).reduce((a,p)=>a+pvAt(p,date,i),0)}
+function projecao(i,B){
+  // passo mensal (dia 21 de cada mês) até a última parcela; amortiza B em todo dezembro a partir de 2027 (modo prazo)
+  const out=[];const skip=new Set();let d0=TODAY.slice(0,8)+"21";if(d0<TODAY)d0=addMonths(d0,1);
+  let ecoTot=0,quitPlano=null;const decs=[];
+  for(let d=d0;d<="2031-10-21";d=addMonths(d,1)){
+    if(B>0&&d.slice(5,7)==="12"&&d>="2027-12-01"){
+      const ab=PAN.filter(p=>!isDone(p.key)&&p.due>d&&!skip.has(p.key)).sort((a,b)=>a.due<b.due?1:-1);
+      let bud=B,n=0,eco=0;for(const p of ab.slice(0,ab.length-1)){const v=pvAt(p,d,i);if(v>bud)break;bud-=v;skip.add(p.key);n++;eco+=p.amt-v}
+      ecoTot+=eco;decs.push({ano:d.slice(0,4),n,eco,usado:B-bud});
+    }
+    out.push({d,sem:saldoPV(d,i),com:saldoPV(d,i,skip)});
+  }
+  const rest=PAN.filter(p=>!isDone(p.key)&&!skip.has(p.key));quitPlano=rest.length?rest[rest.length-1].due:TODAY;
+  return {out,ecoTot,quitPlano,decs};
+}
+function chartSVG(pts){
+  if(!pts.length)return "";
+  const W=640,H=220,L=56,Rr=12,T=12,Bm=28,max=Math.max(...pts.map(p=>p.sem))||1;
+  const x=k=>L+(W-L-Rr)*k/(pts.length-1||1),y=v=>T+(H-T-Bm)*(1-v/max);
+  const line=key=>pts.map((p,k)=>(k?"L":"M")+x(k).toFixed(1)+","+y(p[key]).toFixed(1)).join("");
+  let grid="";for(let g=0;g<=4;g++){const v=max*g/4;grid+=`<line x1="${L}" x2="${W-Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+4}" text-anchor="end" font-size="11" fill="var(--muted)">${v>=1000?Math.round(v/1000)+" mil":Math.round(v)}</text>`}
+  let xt="";pts.forEach((p,k)=>{if(p.d.slice(5,7)==="01")xt+=`<text x="${x(k)}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${p.d.slice(0,4)}</text>`});
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Saldo devedor com e sem amortização">${grid}${xt}<path d="${line("sem")}" fill="none" stroke="var(--muted)" stroke-width="2" stroke-dasharray="5 4"/><path d="${line("com")}" fill="none" stroke="var(--ok)" stroke-width="3"/></svg>`;
+}
+function renderAmort(){
+  const i=taxaM(),disp=disponivel(),pv=saldoPV(TODAY,i),face=PAN.filter(p=>!isDone(p.key)).reduce((a,p)=>a+p.amt,0);
+  $("amKpis").innerHTML=[
+    ["Disponível para amortizar",fmt0(disp),"Lucro + Reserva acima do colchão"],
+    ["Taxa usada",(Number(st.cfg.taxa)||0).toLocaleString("pt-BR")+"% a.m.",st.cfg.taxaOk?"confirmada no contrato":"ESTIMATIVA · confirme na CCB"],
+    ["Para quitar hoje",fmt0(pv),"saldo sem os juros futuros"],
+    ["Juros ainda embutidos",fmt0(face-pv),"o que dá para economizar"]
+  ].map((k,n)=>`<div class="panel kpi"><div class="label">${k[0]}</div><div class="v num" style="${n===1&&!st.cfg.taxaOk?"color:var(--warn)":""}">${k[1]}</div><div class="s">${k[2]}</div></div>`).join("");
+  ["amTaxa","amColchao","amPlano","amIpva","amRenov"].forEach(id=>{const k={amTaxa:"taxa",amColchao:"colchao",amPlano:"planoDez",amIpva:"ipva",amRenov:"seguroRenov"}[id];if(document.activeElement!==$(id))$(id).value=st.cfg[k]});
+  $("amTaxaOk").checked=!!st.cfg.taxaOk;
+  if(!$("amValor").value)$("amValor").value=Math.floor(disp/100)*100||"";
+  renderSim();
+  const pr=projecao(i,Number(st.cfg.planoDez)||0);
+  $("amChart").innerHTML=chartSVG(pr.out);
+  $("amResumo").innerHTML=`Com <b>${fmt0(Number(st.cfg.planoDez)||0)}</b> todo dezembro (a partir de 2027): economia de <b>${fmt0(pr.ecoTot)}</b> em juros e carro quitado em <b>${br(pr.quitPlano)}</b> em vez de ${br(([...PAN].reverse().find(p=>!isDone(p.key))||PAN[59]).due)}.`;
+  $("amDecs").innerHTML=`<thead><tr><th>Dezembro</th><th class="n">Usar</th><th class="n">Parcelas quitadas</th><th class="n">Economia</th></tr></thead><tbody>${pr.decs.map(d=>`<tr><td>${d.ano}</td><td class="n">${fmt0(d.usado)}</td><td class="n">${d.n}</td><td class="n">${fmt0(d.eco)}</td></tr>`).join("")||`<tr><td colspan="4" class="note">Defina um valor por dezembro.</td></tr>`}</tbody>`;
+  const hs=[...st.amort].sort((a,b)=>a.data<b.data?1:-1);
+  $("amHist").innerHTML=hs.map(a=>`<div class="row"><div><div class="t">${br(a.data)} · ${fmt(Number(a.valor))}</div><div class="m">${a.modo==="parcela"?"Reduziu a parcela para "+fmt(Number(a.novaParcela)):"Antecipou "+(a.parcelas||[]).length+" parcela(s) do fim"} · economia estimada ${fmt0(Number(a.economia)||0)} · saiu de Lucro ${fmt0(Number((a.fonte||{}).luc)||0)} e Reserva ${fmt0(Number((a.fonte||{}).res)||0)}</div></div><div class="r"><button class="btn sm" data-amdel="${esc(a.id)}">Desfazer</button></div></div>`).join("")||`<div class="empty">Nenhuma amortização registrada ainda.</div>`;
+}
+function renderSim(){
+  const i=taxaM(),v=Number($("amValor").value)||0,date=$("amData").value||TODAY;
+  $("amNova").hidden=amModo!=="parcela";
+  if(amModo==="prazo"){
+    const r=simPrazo(v,date,i);amSel=r;
+    $("amSim").innerHTML=r.sel.length?`<div class="alert ok"><span class="dot"></span><span><b>Quita ${r.sel.length} parcela(s) do fim</b> pagando ${fmt(r.pago)} no lugar de ${fmt(r.face)}. <b>Economia de ${fmt(r.eco)}</b> em juros. Nova quitação: <b>${br(r.quit)}</b>.</span></div>
+      <div class="scroll" style="margin-top:8px"><table class="tbl"><thead><tr><th>Parcela</th><th>Vencimento</th><th class="n">Valor cheio</th><th class="n">Com desconto</th></tr></thead><tbody>${r.sel.map(p=>`<tr><td>${esc(p.t.replace("Banco Pan · ",""))}</td><td>${br(p.due)}</td><td class="n">${fmt(p.amt)}</td><td class="n">${fmt(p.v)}</td></tr>`).join("")}</tbody></table></div>`
+      :`<div class="empty">Com esse valor não dá para quitar nem uma parcela do fim. Aumente o valor.</div>`;
+    $("amRegValor").value=r.sel.length?r.pago.toFixed(2):"";
+  }else{
+    const r=simParcela(v,date,i);amSel=r;
+    $("amSim").innerHTML=r?`<div class="alert ok"><span class="dot"></span><span>A parcela cai de ${fmt(PAN.find(p=>!isDone(p.key)).amt)} para cerca de <b>${fmt(r.nova)}</b> nas ${r.n} restantes. Economia de juros: <b>${fmt(r.eco)}</b>. O valor exato vem no boleto do Pan.</span></div>`:`<div class="empty">Nada a amortizar.</div>`;
+    $("amRegValor").value=r?r.pago.toFixed(2):"";if(r&&!$("amNovaParcela").value)$("amNovaParcela").value=r.nova.toFixed(2);
+  }
+  // comparação
+  const a=simPrazo(v,date,i),b=simParcela(v,date,i);
+  $("amComp").textContent=b?`Com ${fmt0(v)}: reduzir PRAZO economiza ${fmt0(a.eco)} · reduzir PARCELA economiza ${fmt0(b.eco)}.`:"";
 }
 
 /* ---------- Importação inicial dos arquivos ---------- */
@@ -361,7 +464,7 @@ $("importIn").addEventListener("change",async ev=>{
 
 /* ---------- UI ---------- */
 const tabs=[...document.querySelectorAll("nav.tabs button")];
-const VIEWS=["painel","semanas","contas","caixinha","carro","ficha"];
+const VIEWS=["painel","semanas","contas","amort","caixinha","carro","ficha"];
 function show(v){tabs.forEach(b=>b.setAttribute("aria-selected",String(b.dataset.v===v)));VIEWS.forEach(x=>$("v-"+x).hidden=x!==v);try{localStorage.setItem("tab",v)}catch(e){}}
 tabs.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.v);window.scrollTo(0,0)}));
 const segBind=(id,fn)=>$(id).addEventListener("click",ev=>{const b=ev.target.closest("button");if(!b)return;[...b.parentNode.children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));fn(b.dataset.f)});
@@ -391,6 +494,9 @@ document.addEventListener("click",async ev=>{
     const [col,id]=d.dataset.del.split("/");act(()=>del(col,id),"Excluído");return}
   const m=ev.target.closest("[data-multa]");
   if(m){const x=st.multas.find(y=>y.id===m.dataset.multa);if(x){const {id,...rest}=x;act(()=>put("multas",id,Object.assign(rest,{status:x.status==="pago"?"aberto":"pago"})))}return}
+  const ad=ev.target.closest("[data-amdel]");
+  if(ad){if(ad.dataset.confirm!=="1"){ad.dataset.confirm="1";ad.textContent="Confirmar?";setTimeout(()=>{ad.dataset.confirm="";ad.textContent="Desfazer"},3000);return}
+    const a=st.amort.find(x=>x.id===ad.dataset.amdel);if(a)act(async()=>{for(const k of (a.parcelas||[]))await del("status",k);await del("amort",a.id)},"Amortização desfeita");return}
   const fz=ev.target.closest("[data-fiz]");
   if(fz){show("caixinha");$("gTipo").value=fz.dataset.fiz;$("gEnv").value="man";$("gData").value=TODAY;const cur=kmNow();if(cur)$("gKm").value=cur.km;$("gValor").focus();toast("Preencha o valor e lance");return}
   const wk=ev.target.closest("[data-wk]");
@@ -411,12 +517,25 @@ $("fGasto").addEventListener("submit",ev=>{ev.preventDefault();
 $("gTipo").addEventListener("change",()=>{const t=$("gTipo").value;$("gEnv").value=t==="Retirada de lucro"?"luc":["IPVA","Licenciamento","Franquia"].includes(t)?"res":"man"});
 $("fKm").addEventListener("submit",ev=>{ev.preventDefault();const o=$("kOleo").value;act(()=>put("km",newId(),{data:$("kData").value,km:Number($("kVal").value),oleo:o===""?null:Number(o)}),"KM anotado");$("kVal").value="";$("kOleo").value=""});
 $("fMulta").addEventListener("submit",ev=>{ev.preventDefault();act(()=>put("multas",newId(),{data:$("mData").value,desc:$("mDesc").value.trim(),valor:Number($("mValor").value),status:"aberto"}),"Multa registrada");$("mDesc").value="";$("mValor").value=""});
-$("fCfg").addEventListener("submit",ev=>{ev.preventDefault();act(()=>put("config","geral",{man:Number($("cMan").value)||0,res:Number($("cRes").value)||0,oleoKm:Number($("cOleoKm").value)||7500,oleoPct:Number($("cOleoPct").value)||15}),"Ajustes salvos")});
+$("fCfg").addEventListener("submit",ev=>{ev.preventDefault();act(()=>put("config","geral",Object.assign({},st.cfg,{man:Number($("cMan").value)||0,res:Number($("cRes").value)||0,oleoKm:Number($("cOleoKm").value)||7500,oleoPct:Number($("cOleoPct").value)||15})),"Ajustes salvos")});
 $("fDoc").addEventListener("submit",ev=>{ev.preventDefault();const file=$("dFile").files[0];if(!file)return;
   act(async()=>{const id=newId();const ext=(file.name.split(".").pop()||"bin").toLowerCase();const blob=await compress(file,2200);const path=`${user.id}/extras/${id}.${file.type.startsWith("image/")?"jpg":ext}`;await upload(path,blob,file.type.startsWith("image/")?"image/jpeg":file.type);await put("docs",id,{nome:$("dNome").value.trim(),path,data:TODAY})},"Documento enviado");
   $("dNome").value="";$("dFile").value=""});
-["gData","kData","mData"].forEach(id=>$(id).value=TODAY);
+["gData","kData","mData","amData"].forEach(id=>$(id).value=TODAY);
 
+
+segBind("segAm",f=>{amModo=f;renderSim()});
+["amValor","amData"].forEach(id=>$(id).addEventListener("input",renderSim));
+$("fAmCfg").addEventListener("submit",ev=>{ev.preventDefault();act(()=>put("config","geral",Object.assign({},st.cfg,{taxa:Number(String($("amTaxa").value).replace(",","."))||0,taxaOk:$("amTaxaOk").checked,colchao:Number($("amColchao").value)||0,planoDez:Number($("amPlano").value)||0,ipva:Number($("amIpva").value)||0,seguroRenov:Number($("amRenov").value)||0})),"Parâmetros salvos")});
+$("fAmReg").addEventListener("submit",ev=>{ev.preventDefault();
+  const valor=Number($("amRegValor").value)||0,data=$("amData").value||TODAY;if(valor<=0){toast("Informe o valor pago");return}
+  if(amModo==="prazo"&&!(amSel&&amSel.sel&&amSel.sel.length)){toast("Simule primeiro");return}
+  const e=envelopes();const luc=Math.min(Math.max(0,e.luc),valor),res=valor-luc;
+  const id=newId();
+  const doc={data,valor,modo:amModo,fonte:{luc,res},economia:amModo==="prazo"?amSel.eco:(amSel?amSel.eco:0)};
+  if(amModo==="prazo")doc.parcelas=amSel.sel.map(p=>p.key);else{const np=Number($("amNovaParcela").value)||0;if(np<=0){toast("Informe o novo valor da parcela");return}doc.novaParcela=np}
+  act(async()=>{await put("amort",id,doc);if(doc.parcelas)for(const k of doc.parcelas)await put("status",k,{done:true,at:data,antecipada:true,amortId:id})},"Amortização registrada");
+  $("amValor").value="";$("amNovaParcela").value=""});
 /* ---------- Login ---------- */
 $("fLogin").addEventListener("submit",async ev=>{ev.preventDefault();$("lErr").textContent="";$("lBtn").disabled=true;
   const {error}=await sb.auth.signInWithPassword({email:$("lEmail").value.trim(),password:$("lSenha").value});

@@ -26,7 +26,7 @@ img{max-width:100%}
   --bg:#eef1f6; --surface:#ffffff; --surface-2:#f5f7fb; --line:#d9dfea;
   --fg:#141b2b; --muted:#5b6579; --accent:#1d4aa0; --accent-soft:#e3ebfa;
   --ok:#17804a; --ok-soft:#e1f3e8; --warn:#a35f00; --warn-soft:#fdf0d9; --bad:#b4232c; --bad-soft:#fbe4e5;
-  --env-fin:#1d4aa0; --env-seg:#6a3fb5; --env-man:#0f7c7a; --env-res:#a35f00; --env-luc:#17804a;
+  --env-fin:#1d4aa0; --env-seg:#6a3fb5; --env-man:#0f7c7a; --env-res:#a35f00; --env-luc:#17804a; --env-obr:#b8326a;
   --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
   --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
   --r:10px;
@@ -35,13 +35,13 @@ img{max-width:100%}
   --bg:#0d121c; --surface:#151c2a; --surface-2:#1b2333; --line:#2a3447;
   --fg:#e8edf6; --muted:#97a2b8; --accent:#7ea6f2; --accent-soft:#1d2a45;
   --ok:#5cc98c; --ok-soft:#163223; --warn:#f0b459; --warn-soft:#3a2a12; --bad:#f2777e; --bad-soft:#3d1a1e;
-  --env-fin:#7ea6f2; --env-seg:#b79af0; --env-man:#55c7c4; --env-res:#f0b459; --env-luc:#5cc98c;
+  --env-fin:#7ea6f2; --env-seg:#b79af0; --env-man:#55c7c4; --env-res:#f0b459; --env-luc:#5cc98c; --env-obr:#f08bb4;
   color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0d121c; --surface:#151c2a; --surface-2:#1b2333; --line:#2a3447;
   --fg:#e8edf6; --muted:#97a2b8; --accent:#7ea6f2; --accent-soft:#1d2a45;
   --ok:#5cc98c; --ok-soft:#163223; --warn:#f0b459; --warn-soft:#3a2a12; --bad:#f2777e; --bad-soft:#3d1a1e;
-  --env-fin:#7ea6f2; --env-seg:#b79af0; --env-man:#55c7c4; --env-res:#f0b459; --env-luc:#5cc98c;
+  --env-fin:#7ea6f2; --env-seg:#b79af0; --env-man:#55c7c4; --env-res:#f0b459; --env-luc:#5cc98c; --env-obr:#f08bb4;
   color-scheme:dark}
 *{box-sizing:border-box}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
@@ -113,7 +113,7 @@ input,select{font:inherit;color:var(--fg);background:var(--surface-2);border:1px
 .bar>i{display:block;height:100%;background:var(--accent)}
 .note{font-size:.82rem;color:var(--muted)}
 .banner{padding:10px 12px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:.88rem;margin-bottom:12px}
-.split{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:6px}
+.split{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px;margin-top:6px}
 .split div{background:var(--surface-2);border-radius:6px;padding:6px;text-align:center;font-size:.72rem;color:var(--muted)}
 .split div b{display:block;font-family:var(--display);font-size:1.05rem;color:var(--fg)}
 @media (max-width:420px){.split{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -201,7 +201,13 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.88rem;z-index:60;max-width:calc(100% - 32px)}
 .drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--muted)}
 .loading{color:var(--muted);padding:40px 0;text-align:center}
-@media (max-width:640px){nav.tabs{top:auto}}
+@media (max-width:640px){nav.tabs{top:auto}nav.tabs button{font-size:.66rem;padding:10px 0}}
+.amgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+.chk-row{display:flex;gap:8px;align-items:center;font-size:.82rem;color:var(--muted);font-weight:600}
+.chk-row input{width:auto}
+#amKpis .v{font-size:1.6rem}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:18px;height:3px;vertical-align:middle;margin-right:6px}
 
 </style>
 </head>
@@ -235,6 +241,7 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
     <button role="tab" data-v="painel" aria-selected="true">Painel</button>
     <button role="tab" data-v="semanas" aria-selected="false">Aluguel</button>
     <button role="tab" data-v="contas" aria-selected="false">Contas</button>
+    <button role="tab" data-v="amort" aria-selected="false">Amortizar</button>
     <button role="tab" data-v="caixinha" aria-selected="false">Caixinha</button>
     <button role="tab" data-v="carro" aria-selected="false">Carro</button>
     <button role="tab" data-v="ficha" aria-selected="false">Ficha</button>
@@ -275,9 +282,52 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
   <section class="view" id="v-contas" hidden>
     <div class="panel">
       <h2>Contas a pagar</h2>
-      <div class="seg" id="segContas"><button aria-pressed="true" data-f="abertas">Em aberto</button><button aria-pressed="false" data-f="pan">Banco Pan</button><button aria-pressed="false" data-f="seg">Seguro</button><button aria-pressed="false" data-f="pagas">Pagas</button></div>
+      <div class="seg" id="segContas"><button aria-pressed="true" data-f="abertas">Em aberto</button><button aria-pressed="false" data-f="pan">Banco Pan</button><button aria-pressed="false" data-f="seg">Seguro</button><button aria-pressed="false" data-f="obr">IPVA/Seguro novo</button><button aria-pressed="false" data-f="pagas">Pagas</button></div>
       <div class="list" id="contasList"></div>
       <p class="note" style="margin:12px 0 0">Seguro Suhai: parcelas no cartão. O cartão fecha e vence dia 10, então cada parcela entra na fatura do dia 10 seguinte. Atraso no Pan: multa R$ 58,69 + R$ 3,45 por dia.</p>
+    </div>
+  </section>
+
+
+  <!-- AMORTIZAR -->
+  <section class="view" id="v-amort" hidden>
+    <div class="kpis" id="amKpis"></div>
+    <div class="panel"><h2>Simular amortização</h2>
+      <p class="note" style="margin:0 0 10px">Pelo Código de Defesa do Consumidor (art. 52, §2º), ao antecipar parcelas o banco tira os juros proporcionais. Quanto mais longe a parcela, mais barato ela sai. Faça isso em dezembro, com o caixa do ano.</p>
+      <div class="seg" id="segAm"><button aria-pressed="true" data-f="prazo">Reduzir PRAZO (economiza mais)</button><button aria-pressed="false" data-f="parcela">Reduzir PARCELA</button></div>
+      <div class="amgrid">
+        <label class="label" for="amValor" style="display:grid;gap:4px">Quanto usar (R$)<input id="amValor" type="number" min="0" step="100" inputmode="numeric"></label>
+        <label class="label" for="amData" style="display:grid;gap:4px">Data do pagamento<input id="amData" type="date"></label>
+      </div>
+      <div id="amSim" style="margin-top:12px"></div>
+      <p class="note" id="amComp" style="margin:8px 0 0"></p>
+    </div>
+    <div class="panel"><h2>Registrar amortização feita</h2>
+      <p class="note" style="margin:0 0 10px">1) No app do Banco Pan, peça o boleto de antecipação das parcelas mostradas acima (ou de redução da parcela). 2) Pague. 3) Registre aqui com o valor exato que pagou. O dinheiro sai primeiro do Lucro e depois da Reserva.</p>
+      <form class="f" id="fAmReg">
+        <label for="amRegValor">Valor pago (R$)<input id="amRegValor" type="number" min="0" step="0.01" required></label>
+        <label for="amNovaParcela" id="amNova" hidden>Novo valor da parcela (R$)<input id="amNovaParcela" type="number" min="0" step="0.01"></label>
+        <button class="btn pri" type="submit">Registrar</button>
+      </form>
+      <div class="list" id="amHist" style="margin-top:10px"></div>
+    </div>
+    <div class="panel"><h2>Plano de dezembro</h2>
+      <div id="amChart"></div>
+      <div class="legend"><span><i style="background:var(--muted)"></i>Sem amortizar</span><span><i style="background:var(--ok)"></i>Amortizando todo dezembro</span></div>
+      <p style="margin:10px 0" id="amResumo"></p>
+      <div class="scroll"><table class="tbl" id="amDecs"></table></div>
+    </div>
+    <div class="panel"><h2>Parâmetros</h2>
+      <form class="f" id="fAmCfg">
+        <label for="amTaxa">Taxa de juros do contrato (% ao mês)<input id="amTaxa" type="number" step="0.01" min="0" max="10"></label>
+        <label for="amColchao">Colchão mínimo na Reserva (R$)<input id="amColchao" type="number" step="100" min="0"></label>
+        <label for="amPlano">Pretendo amortizar por dezembro (R$)<input id="amPlano" type="number" step="500" min="0"></label>
+        <label for="amIpva">IPVA anual estimado (R$)<input id="amIpva" type="number" step="100" min="0"></label>
+        <label for="amRenov">Renovação do seguro estimada (R$)<input id="amRenov" type="number" step="100" min="0"></label>
+        <button class="btn" type="submit">Salvar</button>
+      </form>
+      <label class="chk-row" style="margin-top:10px"><input type="checkbox" id="amTaxaOk"> Confirmei a taxa na Cédula de Crédito Bancário (CCB) ou no app do Pan</label>
+      <p class="note" style="margin:8px 0 0">A taxa de 2,5% é estimada a partir da mora de R$ 3,45/dia do boleto. IPVA em MG: 4% do valor FIPE, pago em 3 cotas (jan–mar; confira as datas da sua placa na SEF-MG). Esses dois valores entram no envelope "IPVA e seguro novo" da divisão semanal.</p>
     </div>
   </section>
 
