@@ -219,7 +219,7 @@ function renderPainel(){
   [...PAN,...SEG,...OBR].filter(b=>!isDone(b.key)&&b.due<TODAY).forEach(b=>{const c=lateCost(b);al.push(["bad",`<b>${esc(b.t)} vencida em ${br(b.due)}.</b> ${c?"Multa e mora até hoje: "+fmt(c)+".":"Pague a fatura do cartão."}`])});
   [...PAN,...SEG,...OBR].filter(b=>!isDone(b.key)&&b.due>=TODAY&&diff(b.due,TODAY)<=5).forEach(b=>{const s=billState(b,e);al.push([s[0]==="ok"?"ok":"warn",`<b>${esc(b.t)}</b> vence ${diff(b.due,TODAY)===0?"HOJE":"em "+diff(b.due,TODAY)+" dia(s)"} (${br(b.due)}) · ${fmt(b.amt)} · ${s[1]}`])});
   const mt=mtStatus(),bad=mt.filter(x=>x.sev==="bad"),warn=mt.filter(x=>x.sev==="warn");
-  if(bad.length)al.push(["bad",`<b>Manutenção vencida:</b> ${bad.map(x=>esc(x.n)).join(", ")}. Veja a aba Carro.`]);
+  if(bad.length)al.push(["bad",bad.length===1?`<b>Manutenção vencida:</b> ${esc(bad[0].n)}. <a class="go" data-go="carro">Ver na aba Carro</a>`:`<b>${bad.length} manutenções vencidas</b> (${bad.slice(0,3).map(x=>esc(x.n).split(" ")[0].toLowerCase()).join(", ")}…). <a class="go" data-go="carro">Ver na aba Carro</a>`]);
   if(warn.length)al.push(["warn",`<b>Manutenção chegando:</b> ${warn.map(x=>esc(x.n)).join(", ")}.`]);
   if(TODAY>="2027-08-01"&&TODAY<="2027-10-22")al.push(["warn","<b>Renovação do seguro em 22/10/2027.</b> Cote agora e, se der, pague à vista: o parcelamento atual custou R$ 1.466,23 a mais."]);
   if(!al.length)al.push(["ok","<b>Tudo em dia.</b> Nenhuma pendência nos próximos 5 dias."]);
@@ -467,6 +467,7 @@ const tabs=[...document.querySelectorAll("nav.tabs button")];
 const VIEWS=["painel","semanas","contas","amort","caixinha","carro","ficha"];
 function show(v){tabs.forEach(b=>b.setAttribute("aria-selected",String(b.dataset.v===v)));VIEWS.forEach(x=>$("v-"+x).hidden=x!==v);try{localStorage.setItem("tab",v)}catch(e){}}
 tabs.forEach(b=>b.addEventListener("click",()=>{show(b.dataset.v);window.scrollTo(0,0)}));
+document.addEventListener("click",ev=>{const g=ev.target.closest("[data-go]");if(!g||!VIEWS.includes(g.dataset.go))return;ev.preventDefault();show(g.dataset.go);window.scrollTo(0,0)});
 const segBind=(id,fn)=>$(id).addEventListener("click",ev=>{const b=ev.target.closest("button");if(!b)return;[...b.parentNode.children].forEach(x=>x.setAttribute("aria-pressed",String(x===b)));fn(b.dataset.f)});
 segBind("segSem",f=>{semFilter=f;renderSemanas()});segBind("segContas",f=>{contaFilter=f;renderContas()});
 function msg(t){const b=$("banner");b.textContent=t;b.hidden=!t;if(t)window.scrollTo(0,0)}

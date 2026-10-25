@@ -65,6 +65,25 @@ nav.tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
     padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
   nav.tabs button{font-size:.78rem;padding:10px 2px}
 }
+/* Layout C (celular): atalhos grandes no Painel + barra de 4 botões largos */
+nav.tabs button{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+svg.ic{width:18px;height:18px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+nav.tiles{display:none}
+.alert a.go{color:inherit;font-weight:700;text-decoration:underline;cursor:pointer}
+@media (max-width:640px){
+  body{padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))}
+  nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding-top:8px;padding-bottom:calc(10px + env(safe-area-inset-bottom,0px))}
+  nav.tabs button.tab-extra{display:none}
+  nav.tabs button{flex-direction:column;gap:4px;min-height:58px;padding:6px 2px;border-radius:14px;font-size:.8rem}
+  nav.tabs svg.ic{width:24px;height:24px}
+  nav.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  nav.tiles button{background:var(--surface);border:1px solid var(--line);border-radius:16px;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font:600 .9rem var(--body);color:var(--fg);cursor:pointer}
+  nav.tiles svg.ic{width:28px;height:28px;color:var(--accent)}
+  nav.tiles button.hl{background:var(--accent);border-color:var(--accent);color:#fff}
+  nav.tiles button.hl svg.ic{color:#fff}
+}
+@media (max-width:640px) and (prefers-color-scheme:dark){:root:not([data-theme="light"]) nav.tiles button.hl,:root:not([data-theme="light"]) nav.tiles button.hl svg.ic{color:#0d121c}}
+@media (max-width:640px){:root[data-theme="dark"] nav.tiles button.hl,:root[data-theme="dark"] nav.tiles button.hl svg.ic{color:#0d121c}}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 section.view{display:grid;gap:16px}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
@@ -238,13 +257,13 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-v="painel" aria-selected="true">Painel</button>
-    <button role="tab" data-v="semanas" aria-selected="false">Aluguel</button>
-    <button role="tab" data-v="contas" aria-selected="false">Contas</button>
-    <button role="tab" data-v="amort" aria-selected="false">Amortizar</button>
-    <button role="tab" data-v="caixinha" aria-selected="false">Caixinha</button>
-    <button role="tab" data-v="carro" aria-selected="false">Carro</button>
-    <button role="tab" data-v="ficha" aria-selected="false">Ficha</button>
+    <button role="tab" data-v="painel" aria-selected="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg><span>Painel</span></button>
+    <button role="tab" data-v="semanas" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg><span>Aluguel</span></button>
+    <button role="tab" data-v="contas" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span>Contas</span></button>
+    <button role="tab" data-v="amort" aria-selected="false" class="tab-extra"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Amortizar</span></button>
+    <button role="tab" data-v="caixinha" aria-selected="false" class="tab-extra"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg><span>Caixinha</span></button>
+    <button role="tab" data-v="carro" aria-selected="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg><span>Carro</span></button>
+    <button role="tab" data-v="ficha" aria-selected="false" class="tab-extra"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg><span>Ficha</span></button>
   </nav>
 
   <div id="banner" class="banner" hidden></div>
@@ -255,6 +274,7 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
   <!-- PAINEL -->
   <section class="view" id="v-painel" hidden>
     <div class="panel"><h2>Atenção agora</h2><div class="alerts" id="alertas"></div></div>
+    <nav class="tiles" aria-label="Atalhos"><button type="button" data-go="semanas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M17 6l3 3M15 8l2 2"/></svg><span>Aluguel</span></button><button type="button" data-go="contas"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span>Contas</span></button><button type="button" data-go="amort" class="hl"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg><span>Amortizar</span></button><button type="button" data-go="caixinha"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18"/></svg><span>Caixinha</span></button><button type="button" data-go="carro"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 17h14v-5l-2-5H7l-2 5z"/><circle cx="8" cy="17" r="2"/><circle cx="16" cy="17" r="2"/></svg><span>Carro</span></button><button type="button" data-go="ficha"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg><span>Ficha</span></button></nav>
     <div class="kpis" id="kpis"></div>
     <div class="grid2">
       <div class="panel"><h2>Envelopes (dinheiro real)</h2><div class="envs" id="envs"></div>
@@ -443,6 +463,6 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
 <div id="toast" class="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="app.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
