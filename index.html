@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Controle do Tracker</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#1d4aa0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tracker">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+:root{color-scheme:light}
+[hidden]{display:none!important}
+body{margin:0}
+img{max-width:100%}
+
+/* Layout: painel de instrumentos — resumo no topo, abas embaixo no celular e no alto no desktop */
+:root{
+  --bg:#eef1f6; --surface:#ffffff; --surface-2:#f5f7fb; --line:#d9dfea;
+  --fg:#141b2b; --muted:#5b6579; --accent:#1d4aa0; --accent-soft:#e3ebfa;
+  --ok:#17804a; --ok-soft:#e1f3e8; --warn:#a35f00; --warn-soft:#fdf0d9; --bad:#b4232c; --bad-soft:#fbe4e5;
+  --env-fin:#1d4aa0; --env-seg:#6a3fb5; --env-man:#0f7c7a; --env-res:#a35f00; --env-luc:#17804a;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:10px;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0d121c; --surface:#151c2a; --surface-2:#1b2333; --line:#2a3447;
+  --fg:#e8edf6; --muted:#97a2b8; --accent:#7ea6f2; --accent-soft:#1d2a45;
+  --ok:#5cc98c; --ok-soft:#163223; --warn:#f0b459; --warn-soft:#3a2a12; --bad:#f2777e; --bad-soft:#3d1a1e;
+  --env-fin:#7ea6f2; --env-seg:#b79af0; --env-man:#55c7c4; --env-res:#f0b459; --env-luc:#5cc98c;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d121c; --surface:#151c2a; --surface-2:#1b2333; --line:#2a3447;
+  --fg:#e8edf6; --muted:#97a2b8; --accent:#7ea6f2; --accent-soft:#1d2a45;
+  --ok:#5cc98c; --ok-soft:#163223; --warn:#f0b459; --warn-soft:#3a2a12; --bad:#f2777e; --bad-soft:#3d1a1e;
+  --env-fin:#7ea6f2; --env-seg:#b79af0; --env-man:#55c7c4; --env-res:#f0b459; --env-luc:#5cc98c;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+.wrap{max-width:980px;margin:0 auto}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--display);letter-spacing:.01em;margin:0;text-wrap:balance}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:20px 12px}
+header.top h1{font-size:2.1rem;line-height:1;font-weight:700}
+.plate{display:inline-flex;flex-direction:column;border:2px solid var(--fg);border-radius:6px;overflow:hidden;font-family:var(--display);min-width:118px;text-align:center}
+.plate .band{background:var(--accent);color:#fff;font-size:.62rem;letter-spacing:.18em;padding:1px 6px;font-weight:600}
+.plate .p{font-size:1.45rem;font-weight:700;letter-spacing:.08em;padding:0 10px;background:var(--surface)}
+.sub{color:var(--muted);font-size:.86rem;margin-top:4px}
+nav.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:4px;margin-bottom:16px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+nav.tabs button{flex:1;border:0;background:transparent;color:var(--muted);font:600 .9rem var(--body);padding:9px 6px;border-radius:9px;cursor:pointer}
+nav.tabs button[aria-selected="true"]{background:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) nav.tabs button[aria-selected="true"]{color:#0d121c}}
+:root[data-theme="dark"] nav.tabs button[aria-selected="true"]{color:#0d121c}
+@media (max-width:640px){
+  nav.tabs{position:fixed;left:0;right:0;bottom:0;top:auto;border-radius:0;margin:0;border-width:1px 0 0;
+    padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+  nav.tabs button{font-size:.78rem;padding:10px 2px}
+}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section.view{display:grid;gap:16px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;min-width:0}
+.panel h2{font-size:1.3rem;font-weight:600;margin-bottom:10px}
+.label{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi .v{font-family:var(--display);font-size:1.9rem;font-weight:700;line-height:1.1}
+.kpi .s{font-size:.8rem;color:var(--muted)}
+.alerts{display:grid;gap:8px}
+.alert{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:8px;font-size:.92rem}
+.alert b{font-weight:700}
+.alert.bad{background:var(--bad-soft);color:var(--bad)}
+.alert.warn{background:var(--warn-soft);color:var(--warn)}
+.alert.ok{background:var(--ok-soft);color:var(--ok)}
+.alert .dot{width:8px;height:8px;border-radius:50%;background:currentColor;margin-top:7px;flex:none}
+.envs{display:grid;gap:12px}
+.env{display:grid;grid-template-columns:12px 1fr auto;gap:10px;align-items:center}
+.env .sw{width:12px;height:36px;border-radius:3px}
+.env .n{font-weight:600}
+.env .d{font-size:.8rem;color:var(--muted)}
+.env .val{font-family:var(--display);font-size:1.45rem;font-weight:700;text-align:right}
+.list{display:grid}
+.row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .t{font-weight:600}
+.row .m{font-size:.82rem;color:var(--muted)}
+.row .r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pill{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:999px;white-space:nowrap;text-transform:uppercase;letter-spacing:.04em}
+.pill.ok{background:var(--ok-soft);color:var(--ok)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.neu{background:var(--surface-2);color:var(--muted)}
+.btn{border:1px solid var(--line);background:var(--surface-2);color:var(--fg);font:600 .85rem var(--body);padding:7px 12px;border-radius:8px;cursor:pointer}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn.pri{color:#0d121c}}
+:root[data-theme="dark"] .btn.pri{color:#0d121c}
+.btn.sm{padding:5px 9px;font-size:.78rem}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.amt{font-family:var(--display);font-size:1.15rem;font-weight:600}
+.seg{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.seg button{border:1px solid var(--line);background:var(--surface);color:var(--muted);font:600 .8rem var(--body);padding:6px 10px;border-radius:999px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--bg);border-color:var(--fg)}
+form.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;align-items:end}
+form.f label{display:grid;gap:4px;font-size:.78rem;color:var(--muted);font-weight:600}
+input,select{font:inherit;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+.bar{height:10px;border-radius:5px;background:var(--surface-2);overflow:hidden;border:1px solid var(--line)}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.note{font-size:.82rem;color:var(--muted)}
+.banner{padding:10px 12px;border-radius:8px;background:var(--warn-soft);color:var(--warn);font-size:.88rem;margin-bottom:12px}
+.split{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:6px}
+.split div{background:var(--surface-2);border-radius:6px;padding:6px;text-align:center;font-size:.72rem;color:var(--muted)}
+.split div b{display:block;font-family:var(--display);font-size:1.05rem;color:var(--fg)}
+@media (max-width:420px){.split{grid-template-columns:repeat(3,minmax(0,1fr))}}
+details summary{cursor:pointer;font-weight:600;color:var(--accent);font-size:.88rem}
+.empty{color:var(--muted);font-size:.9rem;padding:8px 0}
+
+.tbl{width:100%;border-collapse:collapse;font-size:.88rem}
+.tbl th,.tbl td{text-align:left;padding:7px 8px;border-top:1px solid var(--line);vertical-align:top}
+.tbl th{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);border-top:0}
+.tbl td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroll{overflow-x:auto}
+dl.kv{display:grid;grid-template-columns:minmax(120px,38%) 1fr;gap:0;margin:0;font-size:.9rem}
+dl.kv dt,dl.kv dd{margin:0;padding:7px 0;border-top:1px solid var(--line)}
+dl.kv dt{color:var(--muted);font-size:.8rem;font-weight:600;padding-right:10px}
+dl.kv dd{font-weight:500;overflow-wrap:anywhere}
+dl.kv dt:first-of-type,dl.kv dd:first-of-type{border-top:0}
+.mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;font-size:.86em;letter-spacing:.02em}
+.files{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.file{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--fg);text-decoration:none}
+.file:hover{border-color:var(--accent)}
+.file .ic{font-family:var(--display);font-weight:700;font-size:.8rem;background:var(--bad);color:#fff;border-radius:4px;padding:3px 6px}
+.file .fn{font-weight:600;font-size:.9rem}.file .fs{font-size:.76rem;color:var(--muted)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.ins{border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;color:#0b3a2c;max-width:420px;width:100%;font-size:.82rem}
+.ins .hd{background:#0b3a2c;color:#fff;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #b7d98a}
+.ins .hd b{font-family:var(--display);font-size:1.6rem;letter-spacing:.04em;line-height:1}
+.ins .hd small{display:block;font-size:.6rem;letter-spacing:.12em;opacity:.85}
+.ins .hd span{font-size:.68rem;text-align:right;font-weight:700}
+.ins .hd span em{display:block;font-style:normal;color:#b7d98a;font-size:.6rem}
+.ins .bd{padding:12px 14px;display:grid;gap:8px}
+.ins .lb{font-size:.58rem;letter-spacing:.1em;font-weight:700;color:#4c6b60}
+.ins .big{font-family:var(--display);font-size:1.25rem;font-weight:700}
+.ins .assist{background:#eef5ea;border-radius:6px;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.ins .ft{background:#eef5ea;padding:8px 14px;font-size:.66rem}
+.ins .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.gal button{border:1px solid var(--line);border-radius:8px;overflow:hidden;padding:0;background:var(--surface-2);cursor:zoom-in;text-align:left;color:var(--fg)}
+.gal img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;max-width:100%}
+.gal span{display:block;font-size:.74rem;padding:6px 8px;font-weight:600}
+.lb-ov{position:fixed;inset:0;background:rgba(5,8,14,.92);z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.lb-ov img{max-width:100%;max-height:78vh;border-radius:6px}
+.lb-ov p{color:#fff;margin:0;font-weight:600}
+.lb-ov .ctr{display:flex;gap:8px}
+.chk{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:.8rem}
+.tl{display:grid;gap:0;position:relative}
+.tl .ev{display:grid;grid-template-columns:92px 14px 1fr;gap:10px;padding:8px 0}
+.tl .ev .dt{font-size:.8rem;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums;padding-top:1px}
+.tl .ev .mk{position:relative}
+.tl .ev .mk::before{content:"";position:absolute;left:6px;top:0;bottom:-16px;width:2px;background:var(--line)}
+.tl .ev:last-child .mk::before{display:none}
+.tl .ev .mk i{position:absolute;left:1px;top:4px;width:12px;height:12px;border-radius:50%;background:var(--accent);border:2px solid var(--surface)}
+.tl .ev .tt{font-weight:600}.tl .ev .dd{font-size:.82rem;color:var(--muted)}
+.copy{border:1px solid var(--line);background:var(--surface);color:var(--fg);font:600 .72rem var(--body);padding:4px 8px;border-radius:6px;cursor:pointer}
+@media (max-width:640px){nav.tabs button{font-size:.72rem;padding:10px 1px}}
+@media (prefers-reduced-motion:no-preference){.btn,nav.tabs button{transition:background .15s}}
+
+
+html{-webkit-text-size-adjust:100%}
+body{padding-top:env(safe-area-inset-top,0px)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+nav.tabs{top:env(safe-area-inset-top,0px)}
+.login{min-height:80vh;display:grid;place-items:center}
+.login .panel{width:100%;max-width:380px;display:grid;gap:12px}
+.login h1{font-size:2rem}
+.login label{display:grid;gap:4px;font-size:.8rem;color:var(--muted);font-weight:600}
+.err{color:var(--bad);font-size:.85rem;min-height:1.2em}
+.top-actions{display:flex;gap:8px;align-items:center}
+.linkbtn{background:none;border:0;color:var(--accent);font:600 .82rem var(--body);cursor:pointer;padding:4px}
+.mt{display:grid;gap:0}
+.mt .it{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.mt .it:first-child{border-top:0}
+.mt .it .t{font-weight:600}
+.mt .it .m{font-size:.8rem;color:var(--muted)}
+.mt .it .bar{margin-top:6px;height:6px}
+.mt .it .bar>i.ok{background:var(--ok)}.mt .it .bar>i.warn{background:var(--warn)}.mt .it .bar>i.bad{background:var(--bad)}
+.wk{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:8px;margin-top:8px;align-items:end}
+.wk label{display:grid;gap:3px;font-size:.72rem;color:var(--muted);font-weight:600}
+.wk input{padding:6px 8px}
+.thumb{width:56px;height:42px;object-fit:cover;border-radius:5px;border:1px solid var(--line);cursor:zoom-in}
+.spec{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.spec .s{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:12px}
+.spec .s .k{font-size:.7rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:700}
+.spec .s .v{font-family:var(--display);font-size:1.25rem;font-weight:700;line-height:1.15;margin-top:2px}
+.spec .s .d{font-size:.8rem;color:var(--muted);margin-top:2px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:999px;font-weight:600;font-size:.88rem;z-index:60;max-width:calc(100% - 32px)}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;color:var(--muted)}
+.loading{color:var(--muted);padding:40px 0;text-align:center}
+@media (max-width:640px){nav.tabs{top:auto}}
+
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="loginView" class="login" hidden>
+    <form class="panel" id="fLogin">
+      <div class="plate" aria-hidden="true" style="justify-self:start"><span class="band">BRASIL</span><span class="p">TRACKER</span></div>
+      <h1>Controle do Tracker</h1>
+      <p class="note" style="margin:0">Entre com o mesmo e-mail e senha do sistema da Sabore In Casa.</p>
+      <label for="lEmail">E-mail<input id="lEmail" type="email" autocomplete="username" required></label>
+      <label for="lSenha">Senha<input id="lSenha" type="password" autocomplete="current-password" required></label>
+      <div class="err" id="lErr"></div>
+      <button class="btn pri" type="submit" id="lBtn">Entrar</button>
+      <button class="linkbtn" type="button" id="lReset">Esqueci a senha</button>
+    </form>
+  </div>
+
+  <div id="appView" hidden>
+  <header class="top">
+    <div>
+      <h1>Controle do Tracker</h1>
+      <div class="sub">Tracker Premier 1.2 Turbo 2021 · alugado R$ 1.200/semana</div>
+    </div>
+    <div class="top-actions">
+      <div class="plate" aria-label="Placa do carro"><span class="band">BRASIL</span><span class="p" id="placa">———</span></div>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-v="painel" aria-selected="true">Painel</button>
+    <button role="tab" data-v="semanas" aria-selected="false">Aluguel</button>
+    <button role="tab" data-v="contas" aria-selected="false">Contas</button>
+    <button role="tab" data-v="caixinha" aria-selected="false">Caixinha</button>
+    <button role="tab" data-v="carro" aria-selected="false">Carro</button>
+    <button role="tab" data-v="ficha" aria-selected="false">Ficha</button>
+  </nav>
+
+  <div id="banner" class="banner" hidden></div>
+  <div id="novaBox" class="panel" hidden style="margin-bottom:16px"><h2>Criar nova senha</h2>
+    <form class="f" id="fNova"><label for="nSenha">Nova senha<input id="nSenha" type="password" minlength="8" autocomplete="new-password" required></label><button class="btn pri" type="submit">Salvar senha</button></form></div>
+  <div id="loading" class="loading">Carregando seus dados…</div>
+
+  <!-- PAINEL -->
+  <section class="view" id="v-painel" hidden>
+    <div class="panel"><h2>Atenção agora</h2><div class="alerts" id="alertas"></div></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid2">
+      <div class="panel"><h2>Envelopes (dinheiro real)</h2><div class="envs" id="envs"></div>
+        <p class="note" style="margin:12px 0 0">Saldo = aluguéis marcados como recebidos − contas marcadas como pagas − gastos lançados.</p></div>
+      <div class="panel"><h2>Próximos 30 dias</h2><div class="list" id="prox"></div></div>
+    </div>
+    <div class="panel"><h2>Financiamento Banco Pan</h2>
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap" class="num"><span id="finTxt"></span><span id="finPct" class="label"></span></div>
+      <div class="bar" style="margin-top:8px"><i id="finBar" style="width:0"></i></div>
+      <p class="note" style="margin:8px 0 0">60 parcelas de R$ 2.934,64 · vencimento todo dia 20 · nov/2026 a out/2031</p>
+    </div>
+  </section>
+
+  <!-- SEMANAS -->
+  <section class="view" id="v-semanas" hidden>
+    <div class="panel">
+      <h2>Aluguel semanal</h2>
+      <p class="note" style="margin:0 0 10px">Toda segunda: marque o aluguel como recebido e lance o KM e a vida útil do óleo da foto do painel que o motorista mandar. O sistema divide o dinheiro nos envelopes e atualiza a manutenção.</p>
+      <div class="seg" id="segSem"><button aria-pressed="true" data-f="ano">Até 12 meses</button><button aria-pressed="false" data-f="tudo">Contrato inteiro</button></div>
+      <div class="list" id="semList"></div>
+    </div>
+  </section>
+
+  <!-- CONTAS -->
+  <section class="view" id="v-contas" hidden>
+    <div class="panel">
+      <h2>Contas a pagar</h2>
+      <div class="seg" id="segContas"><button aria-pressed="true" data-f="abertas">Em aberto</button><button aria-pressed="false" data-f="pan">Banco Pan</button><button aria-pressed="false" data-f="seg">Seguro</button><button aria-pressed="false" data-f="pagas">Pagas</button></div>
+      <div class="list" id="contasList"></div>
+      <p class="note" style="margin:12px 0 0">Seguro Suhai: parcelas no cartão. O cartão fecha e vence dia 10, então cada parcela entra na fatura do dia 10 seguinte. Atraso no Pan: multa R$ 58,69 + R$ 3,45 por dia.</p>
+    </div>
+  </section>
+
+  <!-- CAIXINHA -->
+  <section class="view" id="v-caixinha" hidden>
+    <div class="panel"><h2>Caixinha</h2><div class="envs" id="envs2"></div></div>
+    <div class="panel">
+      <h2>Lançar gasto ou retirada</h2>
+      <form class="f" id="fGasto">
+        <label for="gData">Data<input id="gData" type="date" required></label>
+        <label for="gEnv">Sai de qual envelope<select id="gEnv">
+          <option value="man">Manutenção</option><option value="res">Reserva</option><option value="luc">Lucro (retirada)</option></select></label>
+        <label for="gTipo">Tipo<select id="gTipo"></select></label>
+        <label for="gDesc">Descrição<input id="gDesc" type="text" placeholder="Ex.: óleo dexos1 Gen 2 5W30 + filtro"></label>
+        <label for="gValor">Valor (R$)<input id="gValor" type="number" step="0.01" min="0" required></label>
+        <label for="gKm">KM (opcional)<input id="gKm" type="number" min="0"></label>
+        <button class="btn pri" type="submit">Lançar</button>
+      </form>
+      <p class="note" style="margin:10px 0 0">Itens de manutenção lançados aqui com o KM atualizam o plano de manutenção sozinhos.</p>
+    </div>
+    <div class="panel"><h2>Histórico</h2><div class="list" id="gastosList"></div></div>
+  </section>
+
+  <!-- CARRO -->
+  <section class="view" id="v-carro" hidden>
+    <div class="panel"><h2>Plano de manutenção</h2>
+      <div class="kpis" id="kmKpis"></div>
+      <p class="note" style="margin:12px 0 4px">Pelo manual oficial, uso por aplicativo é <b>uso severo</b>. Itens sem registro são calculados desde a fabricação (nov/2020): faça o serviço e registre em "Fiz".</p>
+      <div class="mt" id="mtList"></div>
+    </div>
+    <div class="grid2">
+      <div class="panel"><h2>Quilometragem</h2>
+        <form class="f" id="fKm">
+          <label for="kData">Data<input id="kData" type="date" required></label>
+          <label for="kVal">KM no painel<input id="kVal" type="number" min="0" required></label>
+          <label for="kOleo">Vida útil do óleo (%)<input id="kOleo" type="number" min="0" max="100"></label>
+          <button class="btn pri" type="submit">Anotar</button>
+        </form>
+        <div class="list" id="kmList" style="margin-top:10px"></div>
+      </div>
+      <div class="panel"><h2>Multas</h2>
+        <form class="f" id="fMulta">
+          <label for="mData">Data da infração<input id="mData" type="date" required></label>
+          <label for="mDesc">Descrição<input id="mDesc" type="text" required placeholder="Ex.: velocidade Av. Cristiano Machado"></label>
+          <label for="mValor">Valor (R$)<input id="mValor" type="number" step="0.01" min="0" required></label>
+          <button class="btn pri" type="submit">Registrar</button>
+        </form>
+        <div class="list" id="multaList" style="margin-top:10px"></div>
+      </div>
+    </div>
+    <div class="panel"><h2>Checklist semanal (manual, pág. 209)</h2>
+      <div class="list">
+        <div class="row"><div><div class="t">Nível do óleo do motor</div><div class="m">Motor desligado há 15 min. Abaixo da área hachurada: adicione 1 L de dexos1 Gen 2 5W30.</div></div></div>
+        <div class="row"><div><div class="t">Líquido de arrefecimento</div><div class="m">Motor frio. Entre as marcas do reservatório. Aditivo ACDelco laranja (longa vida).</div></div></div>
+        <div class="row"><div><div class="t">Pressão dos pneus</div><div class="m">35 psi frente e trás (pneus frios). Estepe 60 psi.</div></div></div>
+        <div class="row"><div><div class="t">Reservatório do lavador e freio de estacionamento</div><div class="m">Complete o lavador (2,5 L). Teste o freio de mão.</div></div></div>
+      </div>
+    </div>
+    <div class="panel"><h2>Ajustes</h2>
+      <form class="f" id="fCfg">
+        <label for="cMan">Manutenção por semana (R$)<input id="cMan" type="number" step="1" min="0"></label>
+        <label for="cRes">Reserva por semana (R$)<input id="cRes" type="number" step="1" min="0"></label>
+        <label for="cOleoKm">Trocar óleo a cada (km)<input id="cOleoKm" type="number" step="500" min="3000" max="10000"></label>
+        <label for="cOleoPct">ou quando a vida útil chegar a (%)<input id="cOleoPct" type="number" min="0" max="50"></label>
+        <button class="btn" type="submit">Salvar ajustes</button>
+      </form>
+      <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
+        <span class="note" id="whoami"></span>
+        <button class="btn sm" type="button" id="btnSair">Sair</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- FICHA -->
+  <section class="view" id="v-ficha" hidden>
+    <div class="panel"><h2>Arquivos</h2>
+      <div class="files" id="files"></div>
+      <div id="importBox" hidden style="margin-top:12px">
+        <div class="drop"><b id="importTxt"></b><br><span class="note">Selecione todos os arquivos da pasta Downloads › Controle do Tracker › documentos.</span><br>
+          <input type="file" id="importIn" multiple accept=".pdf,.jpg,.jpeg" style="margin-top:8px;max-width:100%"></div>
+      </div>
+      <form class="f" id="fDoc" style="margin-top:12px">
+        <label for="dNome">Novo documento<input id="dNome" type="text" placeholder="Ex.: CRLV 2026" required></label>
+        <label for="dFile">Arquivo (PDF ou foto)<input id="dFile" type="file" accept=".pdf,image/*" required></label>
+        <button class="btn" type="submit">Enviar</button>
+      </form>
+    </div>
+    <div class="panel"><h2>Especificações do manual</h2><div class="spec" id="specs"></div>
+      <p class="note" style="margin:10px 0 0">Fonte: Manual do Proprietário Tracker 2021 (GM), págs. 167, 209–214, 217–227.</p></div>
+    <div class="panel"><h2>Histórico do carro</h2><div class="tl" id="timeline"></div></div>
+    <div class="grid2">
+      <div class="panel"><h2>Ficha do veículo</h2><dl class="kv" id="kvVeic"></dl></div>
+      <div class="panel"><h2>Telefones úteis</h2><div class="list" id="tels"></div></div>
+    </div>
+    <div class="panel"><h2>Seguro Suhai</h2>
+      <dl class="kv" id="kvApol"></dl>
+      <div class="scroll" style="margin-top:14px"><table class="tbl" id="tCob"></table></div>
+      <div class="kpis" style="margin-top:14px" id="premio"></div>
+    </div>
+    <div class="panel"><h2>Financiamento Banco Pan</h2><dl class="kv" id="kvFin"></dl></div>
+    <div class="panel"><h2>Laudo cautelar</h2>
+      <div class="alert ok" style="margin-bottom:12px"><span class="dot"></span><span><b>SITUAÇÃO GERAL: APROVADO.</b> Nenhum registro no histórico veicular, documentação sem pendências, estrutura sem avarias aparentes.</span></div>
+      <div class="grid2"><dl class="kv" id="kvLaudo"></dl><div class="list" id="laudoStatus"></div></div>
+      <div class="alert warn" style="margin-top:12px" id="laudoAt"></div>
+      <h3 style="font-size:1.1rem;margin:16px 0 8px">Fotos da vistoria</h3>
+      <div class="gal" id="gal"></div>
+    </div>
+  </section>
+  </div>
+</div>
+
+<div id="lb" class="lb-ov" hidden role="dialog" aria-label="Foto"><img id="lbImg" alt=""><p id="lbCap"></p><div class="ctr"><button class="btn" id="lbPrev">Anterior</button><button class="btn" id="lbClose">Fechar</button><button class="btn" id="lbNext">Próxima</button></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
