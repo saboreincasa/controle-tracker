@@ -153,6 +153,7 @@ dl.kv dt:first-of-type,dl.kv dd:first-of-type{border-top:0}
 .files{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
 .file{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--fg);text-decoration:none}
 .file:hover{border-color:var(--accent)}
+.file{cursor:pointer}img.nofoto{background:repeating-linear-gradient(45deg,var(--surface-2),var(--surface-2) 8px,var(--line) 8px,var(--line) 9px)}.file.miss{border-style:dashed;opacity:.85}
 .file .ic{font-family:var(--display);font-weight:700;font-size:.8rem;background:var(--bad);color:#fff;border-radius:4px;padding:3px 6px}
 .file .fn{font-weight:600;font-size:.9rem}.file .fs{font-size:.76rem;color:var(--muted)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
@@ -278,7 +279,7 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
     <div class="kpis" id="kpis"></div>
     <div class="grid2">
       <div class="panel"><h2>Envelopes (dinheiro real)</h2><div class="envs" id="envs"></div>
-        <p class="note" style="margin:12px 0 0">Saldo = aluguéis marcados como recebidos − contas marcadas como pagas − gastos lançados.</p></div>
+        <p class="note" style="margin:12px 0 0">Saldo = aluguéis marcados como recebidos − contas marcadas como pagas − gastos lançados nas caixinhas. Sem lucro até quitar: a sobra vai para a Caixa de amortização.</p></div>
       <div class="panel"><h2>Próximos 30 dias</h2><div class="list" id="prox"></div></div>
     </div>
     <div class="panel"><h2>Financiamento Banco Pan</h2>
@@ -290,6 +291,18 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
 
   <!-- SEMANAS -->
   <section class="view" id="v-semanas" hidden>
+    <div class="panel"><h2>Motorista</h2>
+      <div id="motView"></div>
+      <details style="margin-top:10px"><summary>Editar dados do motorista</summary>
+      <form class="f" id="fMot" style="margin-top:10px">
+        <label for="moNome">Nome<input id="moNome" type="text"></label>
+        <label for="moTel">WhatsApp<input id="moTel" type="tel"></label>
+        <label for="moCont">Contrato<select id="moCont"><option value="sim">Assinado</option><option value="nao">Não assinado</option></select></label>
+        <label for="moCau">Caução (R$)<input id="moCau" type="number" step="0.01" min="0"></label>
+        <button class="btn pri" type="submit">Salvar</button>
+      </form></details>
+      <p class="note" style="margin:10px 0 0">Contrato de boa-fé, sem caução. Guarde o comprovante do Pix em cada semana recebida: é o seu controle.</p>
+    </div>
     <div class="panel">
       <h2>Aluguel semanal</h2>
       <p class="note" style="margin:0 0 10px">Toda segunda: marque o aluguel como recebido e lance o KM e a vida útil do óleo da foto do painel que o motorista mandar. O sistema divide o dinheiro nos envelopes e atualiza a manutenção.</p>
@@ -323,12 +336,13 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
       <p class="note" id="amComp" style="margin:8px 0 0"></p>
     </div>
     <div class="panel"><h2>Registrar amortização feita</h2>
-      <p class="note" style="margin:0 0 10px">1) No app do Banco Pan, peça o boleto de antecipação das parcelas mostradas acima (ou de redução da parcela). 2) Pague. 3) Registre aqui com o valor exato que pagou. O dinheiro sai primeiro do Lucro e depois da Reserva.</p>
+      <p class="note" style="margin:0 0 10px">1) No app do Banco Pan, peça o boleto de antecipação das parcelas mostradas acima (ou de redução da parcela). 2) Pague. 3) Registre aqui com o valor exato que pagou. O app usa primeiro a Caixa de amortização e o que passa do fundo de emergência na Reserva. <b>O que faltar sai do seu bolso</b> e fica no Extrato.</p>
       <form class="f" id="fAmReg">
         <label for="amRegValor">Valor pago (R$)<input id="amRegValor" type="number" min="0" step="0.01" required></label>
         <label for="amNovaParcela" id="amNova" hidden>Novo valor da parcela (R$)<input id="amNovaParcela" type="number" min="0" step="0.01"></label>
         <button class="btn pri" type="submit">Registrar</button>
       </form>
+      <div class="note" id="amRegPrev" style="margin-top:8px"></div>
       <div class="list" id="amHist" style="margin-top:10px"></div>
     </div>
     <div class="panel"><h2>Plano de dezembro</h2>
@@ -340,7 +354,7 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
     <div class="panel"><h2>Parâmetros</h2>
       <form class="f" id="fAmCfg">
         <label for="amTaxa">Taxa de juros do contrato (% ao mês)<input id="amTaxa" type="number" step="0.01" min="0" max="10"></label>
-        <label for="amColchao">Colchão mínimo na Reserva (R$)<input id="amColchao" type="number" step="100" min="0"></label>
+        <label for="amColchao">Fundo de emergência mínimo antes de amortizar (R$)<input id="amColchao" type="number" step="100" min="0"></label>
         <label for="amPlano">Pretendo amortizar por dezembro (R$)<input id="amPlano" type="number" step="500" min="0"></label>
         <label for="amIpva">IPVA anual estimado (R$)<input id="amIpva" type="number" step="100" min="0"></label>
         <label for="amRenov">Renovação do seguro estimada (R$)<input id="amRenov" type="number" step="100" min="0"></label>
@@ -353,13 +367,26 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
 
   <!-- CAIXINHA -->
   <section class="view" id="v-caixinha" hidden>
-    <div class="panel"><h2>Caixinha</h2><div class="envs" id="envs2"></div></div>
+    <div class="grid2">
+      <div class="panel"><h2>Caixa do carro</h2><div class="envs" id="envs2"></div></div>
+      <div class="panel"><h2>Seu bolso</h2><div class="envs" id="bolsoBox"></div>
+        <p class="note" style="margin:12px 0 0">Tudo que saiu do seu bolso para o carro: fundo de emergência, gastos que você pagou e complementos de amortização.</p></div>
+    </div>
+    <div class="panel"><h2>Colocar dinheiro do bolso</h2>
+      <form class="f" id="fAporte">
+        <label for="aData">Data<input id="aData" type="date" required></label>
+        <label for="aEnv">Vai para<select id="aEnv"><option value="res">Reserva (fundo de emergência)</option><option value="luc">Caixa de amortização</option><option value="man">Manutenção</option><option value="fin">Financiamento</option><option value="seg">Seguro</option></select></label>
+        <label for="aDesc">Descrição<input id="aDesc" type="text" placeholder="Ex.: reforço do fundo"></label>
+        <label for="aValor">Valor (R$)<input id="aValor" type="number" step="0.01" min="0" required></label>
+        <button class="btn pri" type="submit">Colocar</button>
+      </form>
+    </div>
     <div class="panel">
-      <h2>Lançar gasto ou retirada</h2>
+      <h2>Lançar gasto</h2>
       <form class="f" id="fGasto">
         <label for="gData">Data<input id="gData" type="date" required></label>
         <label for="gEnv">Sai de qual envelope<select id="gEnv">
-          <option value="man">Manutenção</option><option value="res">Reserva</option><option value="luc">Lucro (retirada)</option></select></label>
+          <option value="man">Manutenção</option><option value="res">Reserva</option><option value="bolso">Do meu bolso (fora das caixinhas)</option></select></label>
         <label for="gTipo">Tipo<select id="gTipo"></select></label>
         <label for="gDesc">Descrição<input id="gDesc" type="text" placeholder="Ex.: óleo dexos1 Gen 2 5W30 + filtro"></label>
         <label for="gValor">Valor (R$)<input id="gValor" type="number" step="0.01" min="0" required></label>
@@ -368,7 +395,12 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
       </form>
       <p class="note" style="margin:10px 0 0">Itens de manutenção lançados aqui com o KM atualizam o plano de manutenção sozinhos.</p>
     </div>
-    <div class="panel"><h2>Histórico</h2><div class="list" id="gastosList"></div></div>
+    <div class="panel"><h2>Extrato: tudo que entra e sai</h2>
+      <div class="seg" id="segExt"><button aria-pressed="true" data-f="mes">Este mês</button><button aria-pressed="false" data-f="ant">Mês passado</button><button aria-pressed="false" data-f="tudo">Tudo</button></div>
+      <div class="kpis" id="extTot" style="margin-bottom:10px"></div>
+      <div class="scroll"><table class="tbl" id="extTbl"></table></div>
+      <p class="note" style="margin:10px 0 0"><b>Caixa</b> = dinheiro do carro (aluguel e o que você colocou). <b>Bolso</b> = o que saiu do seu bolso. O saldo bate com o "Total guardado".</p>
+    </div>
   </section>
 
   <!-- CARRO -->
@@ -412,6 +444,8 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
         <label for="cRes">Reserva por semana (R$)<input id="cRes" type="number" step="1" min="0"></label>
         <label for="cOleoKm">Trocar óleo a cada (km)<input id="cOleoKm" type="number" step="500" min="3000" max="10000"></label>
         <label for="cOleoPct">ou quando a vida útil chegar a (%)<input id="cOleoPct" type="number" min="0" max="50"></label>
+        <label for="cKmLim">Franquia de KM por semana (0 = sem limite)<input id="cKmLim" type="number" step="100" min="0"></label>
+        <label for="cKmEx">Valor do km excedente (R$)<input id="cKmEx" type="number" step="0.05" min="0"></label>
         <button class="btn" type="submit">Salvar ajustes</button>
       </form>
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-top:14px;align-items:center">
@@ -423,11 +457,13 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
 
   <!-- FICHA -->
   <section class="view" id="v-ficha" hidden>
-    <div class="panel"><h2>Arquivos</h2>
+    <div class="panel"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px"><h2 style="margin:0">Documentos</h2><span id="filesSt"></span></div>
+      <p class="note" style="margin:0 0 10px">Toque no documento para abrir. Os que estão com <b>Enviar</b> ainda não estão no app: toque e escolha o arquivo.</p>
       <div class="files" id="files"></div>
       <div id="importBox" hidden style="margin-top:12px">
-        <div class="drop"><b id="importTxt"></b><br><span class="note">Selecione todos os arquivos da pasta Downloads › Controle do Tracker › documentos.</span><br>
-          <input type="file" id="importIn" multiple accept=".pdf,.jpg,.jpeg" style="margin-top:8px;max-width:100%"></div>
+        <div class="drop"><b id="importTxt"></b>
+          <ol class="note" style="text-align:left;margin:8px auto;max-width:520px;padding-left:20px"><li>Faça pelo <b>computador</b> (é uma vez só).</li><li>Toque em <b>Enviar todos de uma vez</b>.</li><li>Abra a pasta <b>Downloads › Controle do Tracker › documentos</b>, aperte <b>Ctrl+A</b> e clique em <b>Abrir</b>.</li></ol>
+          <label class="btn pri" style="display:inline-block;cursor:pointer">Enviar todos de uma vez<input type="file" id="importIn" multiple accept=".pdf,.jpg,.jpeg" hidden></label></div>
       </div>
       <form class="f" id="fDoc" style="margin-top:12px">
         <label for="dNome">Novo documento<input id="dNome" type="text" placeholder="Ex.: CRLV 2026" required></label>
@@ -453,7 +489,7 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
       <div class="grid2"><dl class="kv" id="kvLaudo"></dl><div class="list" id="laudoStatus"></div></div>
       <div class="alert warn" style="margin-top:12px" id="laudoAt"></div>
       <h3 style="font-size:1.1rem;margin:16px 0 8px">Fotos da vistoria</h3>
-      <div class="gal" id="gal"></div>
+      <div id="galSt"></div><div class="gal" id="gal"></div>
     </div>
   </section>
   </div>
@@ -463,6 +499,6 @@ nav.tabs{top:env(safe-area-inset-top,0px)}
 <div id="toast" class="toast" hidden></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="app.js?v=2"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
